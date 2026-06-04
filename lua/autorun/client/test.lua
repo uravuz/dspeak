@@ -1,4 +1,32 @@
-require "gmodpipe"
+require "dspeakui"
+
+local gmodpipeOK, err = pcall(require, "gmodpipe")
+
+if gmodpipeOK then
+    statusUI("gmodpipe", true, "#dspeak.ui.ok")
+else
+    statusUI("gmodpipe", false, "#dspeak.ui.error")
+    statusUI("discord", false, "#dspeak.ui.gmodpiperequired")
+    print(err)
+end
+
+hook.Add("InitPostEntity", "CreateMyUI", function()
+    drawUI()
+end)
+
+local serverResponded = false
+
+net.Receive("dspeakHealth", function()
+    serverResponded = true
+    statusUI("server", true, "#dspeak.ui.ok")
+end)
+
+net.Start("dspeakHealth")
+net.SendToServer()
+
+timer.Create("serverHealthcheck", 5, 1, function()
+    statusUI("server", false, "#dspeak.ui.noresponse")
+end)
 
 local lastPosition
 local clients = {}
@@ -9,6 +37,7 @@ function registerClient(userId)
     net.WriteString(userId)
 
     net.SendToServer()
+
 end
 
 net.Receive("updateClients", function()
@@ -67,12 +96,14 @@ function recalculateClient(client, playerPosition)
     local x = playerPosition.x - client.player:GetPos().x
     local z = playerPosition.x - client.player:GetPos().z
 
-    local spacialRequest = {
+    local spatialRequest = {
         channel = "spatial-audio",
         userId = client.discordId,
         x = x,
         z = z
     }
+
+    Pipe.Write(pipe, util.TableToJSON(spatialRequest))
 end
 
 function recalculateEveryone(playerPosition)
